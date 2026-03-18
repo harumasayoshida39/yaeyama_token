@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  solana-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: yaeyama-token-dev
+    volumes:
+      # Windowsのプロジェクトフォルダをマウント
+      - C:\Users\harum\yaeyama_token:/workspace/project
+      # Cargo/Rustのキャッシュ（ビルド高速化）
+      - cargo-cache:/root/.cargo/registry
+      - target-cache:/workspace/project/target
+    working_dir: /workspace/project
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+
+volumes:
+  cargo-cache:
+  target-cache:
