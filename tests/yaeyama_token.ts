@@ -1,7 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { YaeyamaToken } from "../target/types/yaeyama_token";
-import { Keypair, SystemProgram, SYSVAR_RENT_PUBKEY, PublicKey } from "@solana/web3.js";
+import { Keypair, SystemProgram, SYSVAR_RENT_PUBKEY, PublicKey, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
   getOrCreateAssociatedTokenAccount,
@@ -17,6 +17,18 @@ describe("yaeyama_token", () => {
   const mintKeypair = Keypair.generate();
   const merchantWallet = Keypair.generate();
   const customerWallet = Keypair.generate();
+
+  // メインウォレットから送金する関数
+  async function fundWallet(destination: PublicKey, lamports: number) {
+    const tx = new Transaction().add(
+      anchor.web3.SystemProgram.transfer({
+        fromPubkey: provider.wallet.publicKey,
+        toPubkey: destination,
+        lamports,
+      })
+    );
+    await provider.sendAndConfirm(tx);
+  }
 
   it("Creates YAE token mint (decimals=6)", async () => {
     await program.methods
@@ -35,9 +47,8 @@ describe("yaeyama_token", () => {
   });
 
   it("Mints 1000 YAE to customer", async () => {
-    // カスタマーにSOLをエアドロップ
-    await provider.connection.requestAirdrop(customerWallet.publicKey, 2_000_000_000);
-    await new Promise((r) => setTimeout(r, 1000));
+    // airdropの代わりにメインウォレットから送金
+    await fundWallet(customerWallet.publicKey, 10_000_000); // 0.01 SOL
 
     const tokenAccount = await getOrCreateAssociatedTokenAccount(
       provider.connection,
@@ -47,7 +58,7 @@ describe("yaeyama_token", () => {
     );
 
     await program.methods
-      .mintTokens(new anchor.BN(1_000_000_000)) // 1000 YAE
+      .mintTokens(new anchor.BN(1_000_000_000))
       .accounts({
         mint: mintKeypair.publicKey,
         tokenAccount: tokenAccount.address,
@@ -62,9 +73,8 @@ describe("yaeyama_token", () => {
   });
 
   it("Registers a merchant", async () => {
-    // 店舗にSOLをエアドロップ
-    await provider.connection.requestAirdrop(merchantWallet.publicKey, 2_000_000_000);
-    await new Promise((r) => setTimeout(r, 1000));
+    // airdropの代わりにメインウォレットから送金
+    await fundWallet(merchantWallet.publicKey, 10_000_000); // 0.01 SOL
 
     const [merchantPda] = PublicKey.findProgramAddressSync(
       [Buffer.from("merchant"), merchantWallet.publicKey.toBuffer()],
@@ -72,7 +82,7 @@ describe("yaeyama_token", () => {
     );
 
     await program.methods
-      .registerMerchant("石垣島カフェ", 5) // 5%キャッシュバック
+      .registerMerchant("石垣島カフェ", 5)
       .accounts({
         merchant: merchantPda,
         authority: merchantWallet.publicKey,
@@ -95,7 +105,6 @@ describe("yaeyama_token", () => {
       program.programId
     );
 
-    // お客さんのトークンアカウント
     const customerTokenAccount = await getOrCreateAssociatedTokenAccount(
       provider.connection,
       (provider.wallet as anchor.Wallet).payer,
@@ -103,7 +112,6 @@ describe("yaeyama_token", () => {
       customerWallet.publicKey
     );
 
-    // 店舗のトークンアカウント
     const merchantTokenAccount = await getOrCreateAssociatedTokenAccount(
       provider.connection,
       (provider.wallet as anchor.Wallet).payer,
@@ -111,7 +119,6 @@ describe("yaeyama_token", () => {
       merchantWallet.publicKey
     );
 
-    // 500 YAE決済
     await program.methods
       .processPayment(new anchor.BN(500_000_000))
       .accounts({
@@ -127,12 +134,11 @@ describe("yaeyama_token", () => {
     const customerAccount = await getAccount(provider.connection, customerTokenAccount.address);
     const merchantAccount = await getAccount(provider.connection, merchantTokenAccount.address);
 
-    assert.equal(customerAccount.amount.toString(), "500000000"); // 1000 - 500
+    assert.equal(customerAccount.amount.toString(), "500000000");
     assert.equal(merchantAccount.amount.toString(), "500000000");
     console.log("Customer balance after payment: 500 YAE");
     console.log("Merchant balance after payment: 500 YAE");
 
-    // 売上確認
     const merchantData = await program.account.merchantAccount.fetch(merchantPda);
     console.log("Total sales:", merchantData.totalSales.toString(), "(500 YAE)");
   });
