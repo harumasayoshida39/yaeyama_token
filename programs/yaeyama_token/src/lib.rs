@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, MintTo, Token, TokenAccount, Transfer};
 
-declare_id!("5PAP6AwioCRco33xoFEDSojU6tVbiRg5Bgt8gz5MoTJd");
+declare_id!("6G5J3yXniTmv1bNrbCkva6BgvHoAVvBG4DkFahwRAaop");
 
 #[program]
 pub mod yaeyama_token {

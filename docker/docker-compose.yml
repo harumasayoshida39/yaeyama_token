@@ -8,7 +8,7 @@ services:
     container_name: yaeyama-token-dev
     volumes:
       # Windowsのプロジェクトフォルダをマウント
-      - C:\Users\harum\yaeyama_token:/workspace/project
+      - D:\Dropbox\yaeyama_token:/workspace/project
       # Cargo/Rustのキャッシュ（ビルド高速化）
       - cargo-cache:/root/.cargo/registry
       - target-cache:/workspace/project/target
